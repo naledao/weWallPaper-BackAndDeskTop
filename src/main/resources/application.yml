@@ -1,0 +1,11 @@
+server:
+  port: 16316
+
+app:
+  saveImageDir: ./saveImageDir
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
