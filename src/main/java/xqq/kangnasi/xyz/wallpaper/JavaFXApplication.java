@@ -12,6 +12,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import org.springframework.boot.SpringApplication;
@@ -142,10 +143,13 @@ public class JavaFXApplication extends Application {
         BorderPane root = new BorderPane();
         root.setCenter(webView);
 
-        Scene scene = new Scene(root, 1400, 830);
+        Screen screen = Screen.getPrimary();
+        double screenWidth = screen.getVisualBounds().getWidth();
+        double screenHeight = screen.getVisualBounds().getHeight();
+        Scene scene = new Scene(root, screenWidth*0.8, screenHeight*0.9);
         mainStage.setTitle("远程壁纸共享");
         mainStage.setScene(scene);
-        mainStage.setResizable(false);
+//        mainStage.setResizable(false);
 
         // 设置主窗口图标
         URL iconUrl = getClass().getResource("/ico.jpg");
