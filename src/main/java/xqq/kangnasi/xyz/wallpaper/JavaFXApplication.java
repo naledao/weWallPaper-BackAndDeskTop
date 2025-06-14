@@ -27,6 +27,8 @@ import java.util.Optional;
 
 public class JavaFXApplication extends Application {
     private Stage splashStage;
+    private WebView splashWebView;
+    private WebView mainWebView;
 
     @Override
     public void start(Stage primaryStage) throws IOException {
@@ -43,6 +45,8 @@ public class JavaFXApplication extends Application {
                     // 在 JavaFX 线程中关闭启动窗口并显示主窗口
                     Platform.runLater(() -> {
                         splashStage.close();
+                        disposeWebView(splashWebView);
+                        splashWebView = null;
                         try {
                             configureMainStage(primaryStage);
                             primaryStage.show();
@@ -57,6 +61,8 @@ public class JavaFXApplication extends Application {
                 // 启动失败时显示错误信息
                 Platform.runLater(() -> {
                     splashStage.close();
+                    disposeWebView(splashWebView);
+                    splashWebView = null;
                     showErrorAlert("Spring Boot 启动失败: " + e.getMessage());
                 });
             }
@@ -70,8 +76,8 @@ public class JavaFXApplication extends Application {
         splashStage = new Stage();
 
         // 创建 WebView 加载 HTML
-        WebView webView = new WebView();
-        WebEngine engine = webView.getEngine();
+        splashWebView = new WebView();
+        WebEngine engine = splashWebView.getEngine();
 
         try {
             URL htmlUrl = getClass().getResource("/static/start.html");
@@ -82,13 +88,13 @@ public class JavaFXApplication extends Application {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            webView.getEngine().loadContent(
+            splashWebView.getEngine().loadContent(
                     "<h1 style='color:red;text-align:center'>启动界面加载失败</h1>"
             );
         }
 
         // 配置启动窗口 Scene 和 Stage
-        Scene splashScene = new Scene(webView, 400, 300);
+        Scene splashScene = new Scene(splashWebView, 400, 300);
         splashStage.setScene(splashScene);
         splashStage.setTitle("系统启动中");
         splashStage.initStyle(StageStyle.UNDECORATED);
@@ -135,11 +141,11 @@ public class JavaFXApplication extends Application {
      * 配置主窗口，并在运行期间实时监听分辨率 / 缩放变化，动态调整大小
      */
     private void configureMainStage(Stage mainStage) throws IOException {
-        WebView webView = new WebView();
-        WebEngine engine = webView.getEngine();
+        mainWebView = new WebView();
+        WebEngine engine = mainWebView.getEngine();
         engine.load("http://127.0.0.1:16316/");
         BorderPane root = new BorderPane();
-        root.setCenter(webView);
+        root.setCenter(mainWebView);
 
         // 第一次获取屏幕“可见区域”
         Rectangle2D[] lastBounds = new Rectangle2D[1];
@@ -199,6 +205,8 @@ public class JavaFXApplication extends Application {
 
             Optional<ButtonType> result = alert.showAndWait();
             if (result.isPresent() && result.get() == yesButton) {
+                disposeWebView(mainWebView);
+                mainWebView = null;
                 System.exit(0);
             } else {
                 event.consume(); // 取消关闭
@@ -236,5 +244,20 @@ public class JavaFXApplication extends Application {
             }
         }
         alert.showAndWait();
+    }
+
+    /**
+     * 清理 WebView 占用的资源
+     */
+    private void disposeWebView(WebView webView) {
+        if (webView == null) {
+            return;
+        }
+        Platform.runLater(() -> {
+            WebEngine engine = webView.getEngine();
+            engine.load(null);
+            engine.getLoadWorker().cancel();
+            engine.getHistory().setMaxSize(0);
+        });
     }
 }
