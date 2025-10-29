@@ -1,28 +1,10 @@
 package xqq.kangnasi.xyz.wallpaper.util;
 
-import com.sun.jna.Native;
-import com.sun.jna.win32.StdCallLibrary;
-import com.sun.jna.win32.W32APIOptions;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 public class WallpaperSetterUtil {
 
-    // 桌面壁纸接口
-    public interface User32 extends StdCallLibrary {
-        User32 INSTANCE = Native.load("user32", User32.class, W32APIOptions.DEFAULT_OPTIONS);
-        boolean SystemParametersInfo(int uiAction, int uiParam, String pvParam, int fWinIni);
-    }
-
-    // 常量定义
-    private static final int SPI_SETDESKWALLPAPER = 20;
-    private static final int SPIF_UPDATEINIFILE   = 0x01;
-    private static final int SPIF_SENDWININICHANGE = 0x02;
-
+    // 设置壁纸的方法
     /**
      * 根据传入的 option 设置壁纸。
      *
@@ -32,47 +14,41 @@ public class WallpaperSetterUtil {
      */
     public static boolean setWallpaper(String imagePath, String option) throws IOException, InterruptedException {
         if ("桌面".equals(option)) {
-            // 设置桌面壁纸
-            return User32.INSTANCE.SystemParametersInfo(
-                    SPI_SETDESKWALLPAPER,
-                    0,
-                    imagePath,
-                    SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
+            // 设置桌面壁纸：使用 gsettings 设置 GNOME 桌面壁纸
+            return setDesktopWallpaper(imagePath);
         } else if ("锁屏".equals(option)) {
-            // 构建PowerShell脚本内容
-            String script = String.format(
-                    "$imagePath = \"%s\"; " +
-                            "$registryPath = \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\PersonalizationCSP\"; " +
-                            "New-Item -Path $registryPath -Force; " +
-                            "New-ItemProperty -Path $registryPath -Name LockScreenImagePath -Value $imagePath -PropertyType String -Force; " +
-                            "New-ItemProperty -Path $registryPath -Name LockScreenImageStatus -Value 1 -PropertyType DWORD -Force; " +
-                            "New-ItemProperty -Path $registryPath -Name LockScreenImageUrl -Value $imagePath -PropertyType String -Force;",
-                    imagePath.replace("\"", "`\"") // 转义双引号
-            );
-
-            // 将脚本转换为UTF-16LE格式并Base64编码
-            byte[] scriptBytes = script.getBytes(StandardCharsets.UTF_16LE);
-            String encodedScript = Base64.getEncoder().encodeToString(scriptBytes);
-
-            // 构建提升权限执行的PowerShell命令
-            String command = String.format(
-                    "powershell -Command \"Start-Process powershell -ArgumentList '-EncodedCommand %s' -Verb RunAs\"",
-                    encodedScript
-            );
-
-            // 执行命令
-            Process process = Runtime.getRuntime().exec(new String[]{"cmd.exe", "/c", command});
-
-            // 等待执行完成
-            process.waitFor();
-            return true;
+            // 设置锁屏壁纸：更新 Gnome 配置文件
+            return setLockScreenWallpaper(imagePath);
         } else {
             System.err.println("未知的 option 参数，请使用 \"桌面\" 或 \"锁屏\"");
             return false;
         }
     }
+
+    // 设置桌面壁纸
+    private static boolean setDesktopWallpaper(String imagePath) throws IOException, InterruptedException {
+        // 使用 gsettings 设置 GNOME 桌面壁纸
+        String command = String.format("gsettings set org.gnome.desktop.background picture-uri file://%s", imagePath);
+        return executeCommand(command);
+    }
+
+    // 设置锁屏壁纸（GNOME 锁屏壁纸）
+    private static boolean setLockScreenWallpaper(String imagePath) throws IOException, InterruptedException {
+        // 使用 gsettings 设置锁屏壁纸
+        String command = String.format("gsettings set org.gnome.desktop.screensaver picture-uri file://%s", imagePath);
+        return executeCommand(command);
+    }
+
+    // 执行命令的方法
+    private static boolean executeCommand(String command) throws IOException, InterruptedException {
+        Process process = Runtime.getRuntime().exec(new String[] { "/bin/bash", "-c", command });
+        int exitCode = process.waitFor();
+        return exitCode == 0;
+    }
+
     // 测试方法
     public static void main(String[] args) throws IOException, InterruptedException {
-        setWallpaper("B:\\springboot项目\\wallPaper\\saveImageDir\\petronas_towers_kuala_lumpur_malaysia_1360675_3840x2400.jpg","锁屏");
+        setWallpaper("/home/ksdy/Pictures/petronas_towers_kuala_lumpur_malaysia_1360675_3840x2400.jpg", "桌面");
+        setWallpaper("/home/ksdy/Pictures/petronas_towers_kuala_lumpur_malaysia_1360675_3840x2400.jpg", "锁屏");
     }
 }
